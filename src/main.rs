@@ -1,25 +1,40 @@
 // TODO:
 // 1. animate the player directionally
 // 2. Do some kind of collision detection
+// 3. Load block data into render function
 
-mod world {
+#[derive(Copy, Clone)]
+pub enum Blocks {
+    GRASS = 1,
+    STONE = 2,
+    PLAYER = 3,
+}
 
+impl Blocks {
+    fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0 => Some(Blocks::GRASS),
+            1 => Some(Blocks::STONE),
+            2 => Some(Blocks::PLAYER),
+            _ => None,
+        }
+    }
+}
+
+mod level {
+
+    use crate::Blocks;
     use raylib::prelude::*;
+    use std::fs::File;
+    use std::io::{self, Read};
 
-    #[derive(Copy, Clone)]
-    pub enum Blocks {
-        GRASS,
-        STONE,
-        PLAYER,
+    pub struct Level {
+        pub data: [[Blocks; 16]; 16],
     }
 
-    pub struct World {
-        data: [[Blocks; 16]; 16],
-    }
-
-    impl World {
+    impl Level {
         pub fn new() -> Self {
-            World {
+            Level {
                 data: [[Blocks::STONE; 16]; 16],
             }
         }
@@ -65,11 +80,36 @@ mod world {
                 }
             }
         }
+
+        // Load level data from a file
+        pub fn from_file(file_name: &str) -> io::Result<Self> {
+            let mut file = File::open(file_name)?;
+            let mut buffer = Vec::new();
+            file.read_to_end(&mut buffer)?;
+
+            let mut data = [[Blocks::STONE; 16]; 16];
+            let mut index = 0;
+
+            for i in 0..16 {
+                for j in 0..16 {
+                    if let Some(block) = Blocks::from_u8(buffer[index]) {
+                        data[i][j] = block;
+                    } else {
+                        println!("Invalid block type in file at position {}", index);
+                    }
+                    index += 1;
+                }
+            }
+
+            println!("Level data loaded from {}", file_name);
+            Ok(Level { data })
+        }
     }
 }
 
 mod player {
 
+    use crate::level::*;
     use raylib::ffi;
     use raylib::prelude::*;
     use std::os::raw::c_int;
@@ -123,7 +163,7 @@ mod player {
             );
         }
 
-        pub fn mov(&mut self) {
+        pub fn input_update(&mut self, level: &mut Level) {
             unsafe {
                 if ffi::IsKeyDown(ffi::KeyboardKey::KEY_W as c_int) {
                     self.y -= self.velocity;
@@ -137,20 +177,25 @@ mod player {
                 if ffi::IsKeyDown(ffi::KeyboardKey::KEY_D as c_int) {
                     self.x += self.velocity;
                 }
+                if ffi::IsKeyPressed(ffi::KeyboardKey::KEY_L as c_int) {
+                    level.data = Level::from_file("data.cade")
+                        .unwrap_or_else(|e| {
+                            eprintln!("Failed to load level: {}", e);
+                            Level::new()
+                        })
+                        .data;
+                }
             }
         }
     }
 }
 
+use level::*;
 use player::*;
-use world::*;
 use raylib::prelude::*;
 
 fn main() {
-
-    let (mut rl, thread) = raylib::init()
-        .size(1024, 1024)
-        .build();
+    let (mut rl, thread) = raylib::init().size(1024, 1024).build();
 
     let texture_atlas = rl
         .load_texture(&thread, "./player_sheet.png")
@@ -158,20 +203,17 @@ fn main() {
 
     let mut player = Player::new();
 
-
-    let world = World::new();
+    let mut level = Level::new();
 
     rl.set_target_fps(60);
 
     while !rl.window_should_close() {
         let mut d = rl.begin_drawing(&thread);
 
-        player.mov();
+        player.input_update(&mut level);
 
         d.clear_background(Color::GRAY);
-        world.render(&mut d, &texture_atlas);
+        level.render(&mut d, &texture_atlas);
         player.render(&mut d, &texture_atlas);
-
-         
     }
 }
