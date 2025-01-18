@@ -17,9 +17,8 @@ impl Renderer {
         player: &Player,
     ) {
         world.render(d, texture_atlas);
-        player.render(d, texture_atlas);
+        player.render(d, texture_atlas, world);
 
-        // Display camera information
         let player_text = format!("Player: ({:.2}, {:.2})", player.x, player.y);
         // Draw text on the screen
         d.draw_text(&player_text, 700, 10, 20, Color::WHITE);

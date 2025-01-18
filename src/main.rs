@@ -10,13 +10,14 @@ const FPS: u32 = 64;
 use player::Player;
 use raylib::prelude::*;
 use render::Renderer;
+use std::io;
 use world::World;
 
 pub mod player;
 pub mod render;
 pub mod world;
 
-fn main() {
+fn main() -> io::Result<()> {
     let (mut rl, thread) = raylib::init()
         .size(SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32)
         .build();
@@ -27,8 +28,14 @@ fn main() {
 
     let mut player = Player::new();
 
-    let mut world = World::new();
-
+    let world_result = World::new();
+    let world = match world_result {
+        Ok(world) => world,
+        Err(e) => {
+            eprintln!("Error creating world: {}", e);
+            return Err(e);
+        }
+    };
     let renderer = Renderer::new();
 
     rl.set_target_fps(FPS);
@@ -36,10 +43,11 @@ fn main() {
     while !rl.window_should_close() {
         let mut d = rl.begin_drawing(&thread);
 
-        player.input_update(&mut world);
+        player.input_update();
 
         d.clear_background(Color::GRAY);
         renderer.render(&mut d, &texture_atlas, &world, &player);
-        player.render(&mut d, &texture_atlas);
     }
+
+    Ok(())
 }

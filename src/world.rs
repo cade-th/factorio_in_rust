@@ -2,9 +2,9 @@ use raylib::prelude::*;
 use std::fs::File;
 use std::io::{self, Read};
 
-const WORLD_SIZE: usize = 8;
+const SIZE: usize = 8;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Blocks {
     GRASS = 0,
     STONE = 1,
@@ -23,26 +23,24 @@ impl Blocks {
 }
 
 pub struct World {
-    pub data: [[Blocks; WORLD_SIZE]; WORLD_SIZE],
+    pub data: [[Blocks; SIZE]; SIZE],
+    pub tile_size: f32,
 }
 
 impl World {
-    pub fn new() -> Self {
-        World {
-            data: [[Blocks::STONE; WORLD_SIZE]; WORLD_SIZE],
-        }
+    pub fn new() -> io::Result<World> {
+        Self::from_file("data.cade")
     }
-    pub fn render(&self, d: &mut RaylibDrawHandle, texture_atlas: &Texture2D) {
-        let tile_size = 64.0;
 
+    pub fn render(&self, d: &mut RaylibDrawHandle, texture_atlas: &Texture2D) {
         // Render the world (tiles)
         for i in 0..self.data.len() {
             for j in 0..self.data[0].len() {
                 let dest_rect = Rectangle {
-                    x: i as f32 * tile_size as f32,
-                    y: j as f32 * tile_size as f32,
-                    width: tile_size - 1.0, // Scale the tile with zoom
-                    height: tile_size - 1.0,
+                    x: i as f32 * self.tile_size as f32,
+                    y: j as f32 * self.tile_size as f32,
+                    width: self.tile_size - 1.0, // Scale the tile with zoom
+                    height: self.tile_size - 1.0,
                 };
 
                 let texture_section = match self.data[i][j] {
@@ -77,17 +75,25 @@ impl World {
             }
         }
     }
+
     // Load world data from a file
     pub fn from_file(file_name: &str) -> io::Result<Self> {
         let mut file = File::open(file_name)?;
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)?;
 
-        let mut data = [[Blocks::STONE; WORLD_SIZE]; WORLD_SIZE];
+        if buffer.len() != SIZE * SIZE {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "File size does not match expected world dimensions",
+            ));
+        }
+
+        let mut data = [[Blocks::STONE; SIZE]; SIZE];
         let mut index = 0;
 
-        for i in 0..WORLD_SIZE {
-            for j in 0..WORLD_SIZE {
+        for i in 0..SIZE {
+            for j in 0..SIZE {
                 if let Some(block) = Blocks::from_u8(buffer[index]) {
                     data[i][j] = block;
                 } else {
@@ -97,7 +103,11 @@ impl World {
             }
         }
 
-        println!("world data loaded from {}", file_name);
-        Ok(World { data })
+        println!("World data loaded from {}", file_name);
+        Ok(World {
+            data,
+            // Assuming tile_size is calculated based on `SIZE`:
+            tile_size: SIZE as f32 * SIZE as f32,
+        })
     }
 }
