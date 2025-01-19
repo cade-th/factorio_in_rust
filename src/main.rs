@@ -3,7 +3,7 @@
 // 2. Do some kind of collision detection
 
 const SCREEN_WIDTH: u32 = 1024;
-const SCREEN_HEIGHT: u32 = 512;
+const SCREEN_HEIGHT: u32 = 1024;
 const FPS: u32 = 64;
 
 use player::Player;
@@ -20,6 +20,7 @@ pub mod world;
 fn main() -> io::Result<()> {
     let (mut rl, thread) = raylib::init()
         .size(SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32)
+        .vsync()
         .build();
 
     let texture_atlas = rl
@@ -28,23 +29,24 @@ fn main() -> io::Result<()> {
 
     let mut player = Player::new();
 
-    let world_result = World::new();
-    // This is needed cuz we're getting it from a file
+    // Load world from a file
+    let world_result = World::from_file("data.cade");
     let world = match world_result {
         Ok(world) => world,
         Err(e) => {
-            eprintln!("Error creating world: {}", e);
+            eprintln!("Error loading world: {}", e);
             return Err(e);
         }
     };
-    let renderer = Renderer::new();
+
+    let mut renderer = Renderer::new(&player);
 
     rl.set_target_fps(FPS);
 
     while !rl.window_should_close() {
         let mut d = rl.begin_drawing(&thread);
 
-        player.input_update();
+        player.input_update(&mut renderer.camera);
 
         d.clear_background(Color::GRAY);
         renderer.render(&mut d, &texture_atlas, &world, &player);

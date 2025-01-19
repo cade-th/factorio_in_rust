@@ -22,24 +22,44 @@ impl Blocks {
 
 pub struct World {
     pub data: Vec<Vec<Blocks>>,
+    pub tile_size: usize,
     pub size: usize,
 }
 
 impl World {
-    pub fn new() -> io::Result<World> {
-        Self::from_file("data.cade")
+    pub fn new(size: usize) -> Self {
+        World {
+            data: vec![vec![Blocks::GRASS; size as usize]; size as usize],
+            size,
+            tile_size: 64,
+        }
     }
 
-    pub fn render(&self, d: &mut RaylibDrawHandle, texture_atlas: &Texture2D) {
-        let tile_size = 64.0;
+    fn entity_to_screen(entity_pos: Vector2, camera: &Camera2D) -> Vector2 {
+        Vector2::new(
+            (entity_pos.x - camera.target.x) * camera.zoom + camera.offset.x,
+            (entity_pos.y - camera.target.y) * camera.zoom + camera.offset.y,
+        )
+    }
+
+    pub fn render(&self, d: &mut RaylibDrawHandle, texture_atlas: &Texture2D, camera: &Camera2D) {
+        let _ = d.begin_mode2D(*camera);
 
         for i in 0..self.data.len() {
             for j in 0..self.data[0].len() {
+                let tile_world_pos = Vector2::new(
+                    i as f32 * self.tile_size as f32,
+                    j as f32 * self.tile_size as f32,
+                );
+
+                // Convert the world position to screen position
+                let tile_screen_pos = Self::entity_to_screen(tile_world_pos, camera);
+
                 let dest_rect = Rectangle {
-                    x: i as f32 * tile_size as f32,
-                    y: j as f32 * tile_size as f32,
-                    width: tile_size - 1.0,
-                    height: tile_size - 1.0,
+                    x: tile_screen_pos.x.round(),
+                    y: tile_screen_pos.y.round(),
+                    width: self.tile_size as f32 * camera.zoom,
+                    height: self.tile_size as f32 * camera.zoom,
                 };
 
                 let texture_section = match self.data[i][j] {
@@ -83,6 +103,11 @@ impl World {
         file.read_exact(&mut size_bytes)?;
         let size = u32::from_le_bytes(size_bytes) as usize;
 
+        // Read the tile size (4 bytes)
+        let mut tile_size_bytes = [0u8; 4];
+        file.read_exact(&mut tile_size_bytes)?;
+        let tile_size = f32::from_le_bytes(tile_size_bytes) as usize;
+
         // Calculate the expected number of data bytes
         let expected_data_length = size * size;
 
@@ -113,9 +138,15 @@ impl World {
             }
         }
 
-        // TODO: Get the tile size from the level maker
+        println!(
+            "World data (size: {}, tile_size: {}) loaded from {}",
+            size, tile_size, file_name
+        );
 
-        println!("World data (size: {}) loaded from {}", size, file_name);
-        Ok(World { data, size })
+        Ok(World {
+            data,
+            size,
+            tile_size,
+        })
     }
 }

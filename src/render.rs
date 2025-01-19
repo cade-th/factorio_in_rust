@@ -2,11 +2,30 @@ use crate::Player;
 use crate::World;
 use raylib::prelude::*;
 
-pub struct Renderer {}
+// TODO:
+// 1. Add a state machine for zooming to have discrete zoom levels to avoid screen tearing
+
+pub struct Renderer {
+    pub camera: Camera2D,
+}
 
 impl Renderer {
-    pub fn new() -> Self {
-        Renderer {}
+    pub fn new(player: &Player) -> Self {
+        let offset = unsafe {
+            Vector2::new(
+                raylib::ffi::GetScreenWidth() as f32 / 2.0,
+                raylib::ffi::GetScreenHeight() as f32 / 2.0,
+            )
+        };
+
+        Renderer {
+            camera: Camera2D {
+                target: Vector2::new(player.x as f32, player.y as f32),
+                offset,
+                rotation: 0.0,
+                zoom: 1.0,
+            },
+        }
     }
 
     pub fn render(
@@ -16,11 +35,7 @@ impl Renderer {
         world: &World,
         player: &Player,
     ) {
-        world.render(d, texture_atlas);
-        player.render(d, texture_atlas);
-
-        let player_text = format!("Player: ({:.2}, {:.2})", player.x, player.y);
-        // Draw text on the screen
-        d.draw_text(&player_text, 700, 10, 20, Color::WHITE);
+        world.render(d, texture_atlas, &self.camera);
+        player.render(d, texture_atlas, &self.camera);
     }
 }

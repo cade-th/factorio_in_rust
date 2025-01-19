@@ -1,6 +1,5 @@
 use raylib::ffi;
 use raylib::prelude::*;
-use std::ops::Add;
 use std::os::raw::c_int;
 
 pub struct Player {
@@ -18,31 +17,22 @@ impl Player {
             x: 200.0,
             y: 200.0,
             angle: 0.0,
-            velocity: 2.5,
+            velocity: 5.0,
             direction: Vector2::new(0.0, 0.0),
             size: 64.0,
         }
     }
 
-    pub fn render(&self, d: &mut RaylibDrawHandle, texture_atlas: &Texture2D) {
-        // TODO: Get this from World
-        let tile_size = 64.0;
+    pub fn render(&self, d: &mut RaylibDrawHandle, texture_atlas: &Texture2D, camera: &Camera2D) {
+        let world_pos = Vector2::new(self.x as f32, self.y as f32);
 
-        let player_center: Vector2 = Vector2::new(
-            self.x + self.size / 2.0 as f32,
-            self.y + self.size / 2.0 as f32,
-        );
-
-        let mouse_grid: Vector2 = Vector2::new(
-            d.get_mouse_x() as f32 / tile_size,
-            d.get_mouse_y() as f32 / tile_size,
-        );
+        let player_screen_pos = Self::entity_to_screen(world_pos, camera);
 
         let dest_rect = Rectangle {
-            x: self.x,
-            y: self.y,
-            width: self.size,
-            height: self.size,
+            x: player_screen_pos.x.round(),
+            y: player_screen_pos.y.round(),
+            width: self.size * camera.zoom,
+            height: self.size * camera.zoom,
         };
 
         let texture_section = Rectangle {
@@ -61,15 +51,34 @@ impl Player {
             Color::WHITE,
         );
 
+        // Calculate the center of the player in screen space
+        let player_center = Vector2::new(
+            player_screen_pos.x + (self.size * camera.zoom) / 2.0,
+            player_screen_pos.y + (self.size * camera.zoom) / 2.0,
+        );
+
+        // Calculate the end point of the direction line
+        let direction_line_end = Vector2::new(
+            player_center.x + self.direction.x * 50.0 * camera.zoom,
+            player_center.y + self.direction.y * 50.0 * camera.zoom,
+        );
+
         // Draw direction short line
         d.draw_line_ex(
             player_center,
-            Vector2::add(player_center, self.direction * 50.0),
-            5.0,
+            direction_line_end,
+            5.0 * camera.zoom,
             Color::RED,
         );
 
-        Self::lerping(self, d, player_center);
+        // Self::lerping(self, d, player_center);
+    }
+
+    fn entity_to_screen(entity_pos: Vector2, camera: &Camera2D) -> Vector2 {
+        Vector2::new(
+            (entity_pos.x - camera.target.x) * camera.zoom + camera.offset.x,
+            (entity_pos.y - camera.target.y) * camera.zoom + camera.offset.y,
+        )
     }
 
     // Alright we are raw-dogging this line drawing shit now
@@ -82,7 +91,7 @@ impl Player {
         d.draw_line_ex(player_center, d.get_mouse_position(), 5.0, Color::RED);
 
         // Draw lerped circles between mouse and player
-        Self::lerped_circles(self, d, 5, player_center);
+        Self::lerped_circles(self, d, 10, player_center);
     }
 
     fn lerped_circles(&self, d: &mut RaylibDrawHandle, num_circles: u8, player_center: Vector2) {
@@ -94,7 +103,7 @@ impl Player {
         }
     }
 
-    pub fn input_update(&mut self) {
+    pub fn input_update(&mut self, camera: &mut Camera2D) {
         unsafe {
             if ffi::IsKeyDown(ffi::KeyboardKey::KEY_W as c_int) {
                 self.x += self.direction.x * self.velocity;
@@ -117,6 +126,18 @@ impl Player {
                 self.angle += 2.0 * std::f32::consts::PI;
             }
 
+            // Camera zoom adjustments
+            if ffi::IsKeyPressed(ffi::KeyboardKey::KEY_R as i32) {
+                camera.zoom -= 0.05;
+                println!("Zoom: {:.2}", camera.zoom);
+            }
+            if ffi::IsKeyPressed(ffi::KeyboardKey::KEY_T as i32) {
+                camera.zoom += 0.05;
+                println!("Zoom: {:.2}", camera.zoom);
+            }
+
+            camera.target.x = self.x as f32;
+            camera.target.y = self.y as f32;
             self.direction.x = self.angle.cos();
             self.direction.y = self.angle.sin();
         }
