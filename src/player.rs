@@ -1,4 +1,3 @@
-use crate::world::*;
 use raylib::ffi;
 use raylib::prelude::*;
 use std::ops::Add;
@@ -25,15 +24,18 @@ impl Player {
         }
     }
 
-    pub fn render(&self, d: &mut RaylibDrawHandle, texture_atlas: &Texture2D, world: &World) {
+    pub fn render(&self, d: &mut RaylibDrawHandle, texture_atlas: &Texture2D) {
+        // TODO: Get this from World
+        let tile_size = 64.0;
+
         let player_center: Vector2 = Vector2::new(
             self.x + self.size / 2.0 as f32,
             self.y + self.size / 2.0 as f32,
         );
 
         let mouse_grid: Vector2 = Vector2::new(
-            d.get_mouse_x() as f32 / world.tile_size,
-            d.get_mouse_y() as f32 / world.tile_size,
+            d.get_mouse_x() as f32 / tile_size,
+            d.get_mouse_y() as f32 / tile_size,
         );
 
         let dest_rect = Rectangle {

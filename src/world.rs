@@ -2,8 +2,6 @@ use raylib::prelude::*;
 use std::fs::File;
 use std::io::{self, Read};
 
-const SIZE: usize = 8;
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Blocks {
     GRASS = 0,
@@ -24,7 +22,7 @@ impl Blocks {
 
 pub struct World {
     pub data: Vec<Vec<Blocks>>,
-    pub tile_size: f32,
+    pub size: usize,
 }
 
 impl World {
@@ -33,13 +31,15 @@ impl World {
     }
 
     pub fn render(&self, d: &mut RaylibDrawHandle, texture_atlas: &Texture2D) {
+        let tile_size = 64.0;
+
         for i in 0..self.data.len() {
             for j in 0..self.data[0].len() {
                 let dest_rect = Rectangle {
-                    x: i as f32 * self.tile_size as f32,
-                    y: j as f32 * self.tile_size as f32,
-                    width: self.tile_size - 1.0,
-                    height: self.tile_size - 1.0,
+                    x: i as f32 * tile_size as f32,
+                    y: j as f32 * tile_size as f32,
+                    width: tile_size - 1.0,
+                    height: tile_size - 1.0,
                 };
 
                 let texture_section = match self.data[i][j] {
@@ -75,24 +75,35 @@ impl World {
         }
     }
 
-    // Load world data from a file
     pub fn from_file(file_name: &str) -> io::Result<Self> {
         let mut file = File::open(file_name)?;
+
+        // Read the world size (4 bytes)
+        let mut size_bytes = [0u8; 4];
+        file.read_exact(&mut size_bytes)?;
+        let size = u32::from_le_bytes(size_bytes) as usize;
+
+        // Calculate the expected number of data bytes
+        let expected_data_length = size * size;
+
+        // Read the remaining file data
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)?;
 
-        if buffer.len() != SIZE * SIZE {
+        // Validate the file size
+        if buffer.len() != expected_data_length {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "File size does not match expected world dimensions",
             ));
         }
 
-        let mut data = vec![vec![Blocks::GRASS; SIZE as usize]; SIZE as usize];
+        // Initialize the world data dynamically
+        let mut data = vec![vec![Blocks::GRASS; size]; size];
         let mut index = 0;
 
-        for i in 0..SIZE {
-            for j in 0..SIZE {
+        for i in 0..size {
+            for j in 0..size {
                 if let Some(block) = Blocks::from_u8(buffer[index]) {
                     data[i][j] = block;
                 } else {
@@ -102,11 +113,9 @@ impl World {
             }
         }
 
-        println!("World data loaded from {}", file_name);
-        Ok(World {
-            data,
-            // TODO: Get this from the level editor
-            tile_size: SIZE as f32 * SIZE as f32,
-        })
+        // TODO: Get the tile size from the level maker
+
+        println!("World data (size: {}) loaded from {}", size, file_name);
+        Ok(World { data, size })
     }
 }

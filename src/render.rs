@@ -17,7 +17,7 @@ impl Renderer {
         player: &Player,
     ) {
         world.render(d, texture_atlas);
-        player.render(d, texture_atlas, world);
+        player.render(d, texture_atlas);
 
         let player_text = format!("Player: ({:.2}, {:.2})", player.x, player.y);
         // Draw text on the screen
