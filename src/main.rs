@@ -1,17 +1,17 @@
 // TODO:
-// 1. animate the player directionally
+// 1. Get raycasting working via interpolation
 // 2. Do some kind of collision detection
-// 3. Load block data into render function
 
 const SCREEN_WIDTH: u32 = 1024;
 const SCREEN_HEIGHT: u32 = 512;
 const FPS: u32 = 64;
 
 use player::Player;
-use raylib::prelude::*;
 use render::Renderer;
-use std::io;
 use world::World;
+
+use raylib::prelude::*;
+use std::io;
 
 pub mod player;
 pub mod render;
@@ -29,6 +29,7 @@ fn main() -> io::Result<()> {
     let mut player = Player::new();
 
     let world_result = World::new();
+    // This is needed cuz we're getting it from a file
     let world = match world_result {
         Ok(world) => world,
         Err(e) => {

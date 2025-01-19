@@ -23,7 +23,7 @@ impl Blocks {
 }
 
 pub struct World {
-    pub data: [[Blocks; SIZE]; SIZE],
+    pub data: Vec<Vec<Blocks>>,
     pub tile_size: f32,
 }
 
@@ -33,13 +33,12 @@ impl World {
     }
 
     pub fn render(&self, d: &mut RaylibDrawHandle, texture_atlas: &Texture2D) {
-        // Render the world (tiles)
         for i in 0..self.data.len() {
             for j in 0..self.data[0].len() {
                 let dest_rect = Rectangle {
                     x: i as f32 * self.tile_size as f32,
                     y: j as f32 * self.tile_size as f32,
-                    width: self.tile_size - 1.0, // Scale the tile with zoom
+                    width: self.tile_size - 1.0,
                     height: self.tile_size - 1.0,
                 };
 
@@ -89,7 +88,7 @@ impl World {
             ));
         }
 
-        let mut data = [[Blocks::STONE; SIZE]; SIZE];
+        let mut data = vec![vec![Blocks::GRASS; SIZE as usize]; SIZE as usize];
         let mut index = 0;
 
         for i in 0..SIZE {
@@ -106,7 +105,7 @@ impl World {
         println!("World data loaded from {}", file_name);
         Ok(World {
             data,
-            // Assuming tile_size is calculated based on `SIZE`:
+            // TODO: Get this from the level editor
             tile_size: SIZE as f32 * SIZE as f32,
         })
     }
