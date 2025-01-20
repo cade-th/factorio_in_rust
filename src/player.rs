@@ -81,30 +81,26 @@ impl Player {
     // Alright we are raw-dogging this line drawing shit now
 
     fn draw_ray_dda(&self, d: &mut RaylibDrawHandle, player_center: Vector2, world: &World) {
-        let ray_start = Vector2::new(self.x, self.y); // Starting point of the ray
-        let ray_dir = self.direction.normalized();
+        // Should be player coordinates
+        let ray_start = Vector2::new(
+            self.x + world.tile_size as f32,
+            self.y + world.tile_size as f32,
+        ); // Starting point of the ray
 
-        // Initialize map_check to the starting grid cell
+        // Should be the player directin which is normalized (cos and sin)
+        let ray_dir = self.direction;
+
+        // Should be the sqaure the player is in
+        // Maybe make a global variable of the square the player is in
+        // Grid step direction
         let mut map_check = Vector2::new(
             (ray_start.x / world.tile_size as f32).floor(),
             (ray_start.y / world.tile_size as f32).floor(),
         );
 
-        println!("Initial Map Check: {}, {}", map_check.x, map_check.y);
-
-        // Calculate unit step size (handle potential division by zero)
-        let ray_unit_step_size = Vector2::new(
-            if ray_dir.x != 0.0 {
-                (1.0 / ray_dir.x).abs()
-            } else {
-                f32::MAX
-            },
-            if ray_dir.y != 0.0 {
-                (1.0 / ray_dir.y).abs()
-            } else {
-                f32::MAX
-            },
-        );
+        // Calculate unit step size
+        // The distance the ray needs to travel along each axis to cross one grid cell:
+        let ray_unit_step_size = Vector2::new((1.0 / ray_dir.x).abs(), (1.0 / ray_dir.y).abs());
 
         // Determine step direction and initial ray length
         let mut step = Vector2::new(0.0, 0.0);
@@ -113,25 +109,25 @@ impl Player {
         if ray_dir.x < 0.0 {
             step.x = -1.0;
             ray_length_1d.x =
-                (ray_start.x - map_check.x as f32 * world.tile_size as f32) * ray_unit_step_size.x;
+                (ray_start.x - map_check.x * world.tile_size as f32) * ray_unit_step_size.x;
         } else {
             step.x = 1.0;
-            ray_length_1d.x = ((map_check.x as f32 + 1.0) * world.tile_size as f32 - ray_start.x)
-                * ray_unit_step_size.x;
+            ray_length_1d.x =
+                ((map_check.x + 1.0) * world.tile_size as f32 - ray_start.x) * ray_unit_step_size.x;
         }
 
         if ray_dir.y < 0.0 {
             step.y = -1.0;
             ray_length_1d.y =
-                (ray_start.y - map_check.y as f32 * world.tile_size as f32) * ray_unit_step_size.y;
+                (ray_start.y - map_check.y * world.tile_size as f32) * ray_unit_step_size.y;
         } else {
             step.y = 1.0;
-            ray_length_1d.y = ((map_check.y as f32 + 1.0) * world.tile_size as f32 - ray_start.y)
-                * ray_unit_step_size.y;
+            ray_length_1d.y =
+                ((map_check.y + 1.0) * world.tile_size as f32 - ray_start.y) * ray_unit_step_size.y;
         }
 
-        // DDA loop
-        let max_distance = 100.0;
+        // Perform "walk" until collision or max distance
+        let max_distance = 100.0; // Limit the ray's distance
         let mut tile_found = false;
         let mut distance = 0.0;
 
@@ -146,69 +142,33 @@ impl Player {
                 ray_length_1d.y += ray_unit_step_size.y;
             }
 
-            // Ensure map_check is within bounds
-            if map_check.x < 0.0
-                || map_check.y < 0.0
-                || map_check.x as usize >= world.data.len()
-                || map_check.y as usize >= world.data[0].len()
-            {
-                println!("Out of bounds: {}, {}", map_check.x, map_check.y);
-                break;
-            }
-
             // Check if the current grid cell contains a wall
             let grid_x = map_check.x as i32;
             let grid_y = map_check.y as i32;
-            let tile = world.data[grid_x as usize][grid_y as usize];
 
-            if tile == Blocks::STONE {
-                println!("Wall hit at: {}, {}", grid_x, grid_y);
-                tile_found = true;
+            if grid_x >= 0
+                && grid_y >= 0
+                && (grid_x as usize) < world.data.len()
+                && (grid_y as usize) < world.data[0].len()
+            {
+                if world.data[grid_y as usize][grid_x as usize] == Blocks::STONE {
+                    tile_found = true;
+                }
             }
         }
 
         // Draw the ray
         let hit_point = ray_start + ray_dir * distance * world.tile_size as f32;
-        d.draw_line_ex(player_center, hit_point, 2.0, Color::YELLOW);
 
-        // Render debug variables
-        d.draw_text(
-            &format!("Ray Start: {:.2}, {:.2}", ray_start.x, ray_start.y),
-            10,
-            10,
-            20,
-            Color::WHITE,
-        );
-        d.draw_text(
-            &format!("Ray Dir: {:.2}, {:.2}", ray_dir.x, ray_dir.y),
-            10,
-            40,
-            20,
-            Color::WHITE,
-        );
-        d.draw_text(
-            &format!("Map Check: {}, {}", map_check.x, map_check.y),
-            10,
-            70,
-            20,
-            Color::WHITE,
-        );
-        d.draw_text(
-            &format!(
-                "Unit Step Size: {:.2}, {:.2}",
-                ray_unit_step_size.x, ray_unit_step_size.y
-            ),
-            10,
-            100,
-            20,
-            Color::WHITE,
-        );
-        d.draw_text(
-            &format!("Hit Point: {:.2}, {:.2}", hit_point.x, hit_point.y),
-            10,
-            130,
-            20,
-            Color::WHITE,
+        d.draw_line_ex(
+            player_center,
+            hit_point,
+            2.0,
+            if tile_found {
+                Color::YELLOW
+            } else {
+                Color::RED
+            },
         );
     }
 
