@@ -36,6 +36,6 @@ impl Renderer {
         player: &Player,
     ) {
         world.render(d, texture_atlas, &self.camera);
-        player.render(d, texture_atlas, &self.camera);
+        player.render(d, texture_atlas, &self.camera, world);
     }
 }

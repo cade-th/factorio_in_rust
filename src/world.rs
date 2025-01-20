@@ -29,7 +29,7 @@ pub struct World {
 impl World {
     pub fn new(size: usize) -> Self {
         World {
-            data: vec![vec![Blocks::GRASS; size as usize]; size as usize],
+            data: vec![vec![Blocks::STONE; 8]; 8],
             size,
             tile_size: 64,
         }
@@ -56,8 +56,8 @@ impl World {
                 let tile_screen_pos = Self::entity_to_screen(tile_world_pos, camera);
 
                 let dest_rect = Rectangle {
-                    x: tile_screen_pos.x.round(),
-                    y: tile_screen_pos.y.round(),
+                    x: tile_screen_pos.x,
+                    y: tile_screen_pos.y,
                     width: self.tile_size as f32 * camera.zoom,
                     height: self.tile_size as f32 * camera.zoom,
                 };
