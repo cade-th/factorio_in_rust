@@ -58,8 +58,8 @@ impl World {
                 let dest_rect = Rectangle {
                     x: tile_screen_pos.x,
                     y: tile_screen_pos.y,
-                    width: self.tile_size as f32 * camera.zoom,
-                    height: self.tile_size as f32 * camera.zoom,
+                    width: self.tile_size as f32 - 1.0 * camera.zoom,
+                    height: self.tile_size as f32 - 1.0 * camera.zoom,
                 };
 
                 let texture_section = match self.data[i][j] {
