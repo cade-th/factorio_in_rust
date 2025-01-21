@@ -6,76 +6,142 @@ use std::os::raw::c_int;
 
 // TODO:
 // 1. set discrete values for zoom
-// Set squares and player and mouse to certain color
+// 2. Get distance from brute force raycast
+// 3. Set DDA to same prototype as brute force
+// 4. Show squares that the dda is going into and finish it
 
 pub struct Player {
-    pub x: f32,
-    pub y: f32,
+    pub pos: Vector2,
     velocity: f32,
     direction: Vector2,
     angle: f32,
-    size: f32,
 }
 
 impl Player {
     pub fn new() -> Self {
         Player {
-            x: 200.0,
-            y: 200.0,
+            pos: Vector2::new(256.0, 256.0),
             angle: 0.0,
             velocity: 5.0,
             direction: Vector2::new(0.0, 0.0),
-            size: 64.0,
         }
     }
 
-    pub fn render(
+    pub fn render(&self, d: &mut RaylibDrawHandle, camera: &Camera2D, world: &mut World) {
+        let player_screen_pos = Self::entity_to_screen(self.pos, camera);
+
+        // Draw the circle at the center of the tile
+        let player_radius = 10.0 * camera.zoom;
+        d.draw_circle(
+            player_screen_pos.x as i32,
+            player_screen_pos.y as i32,
+            player_radius,
+            Color::BLUE,
+        );
+
+        // self.render_current_cell(d, world, player_world, camera);
+
+        self.draw_direction_line(d, camera);
+
+        self.ray_cast_brute_force(d, world, camera);
+    }
+
+    pub fn ray_cast_brute_force(
         &self,
         d: &mut RaylibDrawHandle,
-        texture_atlas: &Texture2D,
+        world: &mut World,
         camera: &Camera2D,
-        world: &World,
     ) {
-        let world_pos = Vector2::new(self.x as f32, self.y as f32);
+        // Start the ray in world space at the player's position
+        let mut ray_end = self.pos;
+        let step_size: f32 = 2.0;
 
-        let player_screen_pos = Self::entity_to_screen(world_pos, camera);
+        // World grid dimensions
+        let grid_width = world.data.len();
+        let grid_height = world.data[0].len();
 
-        let dest_rect = Rectangle {
-            x: player_screen_pos.x.round(),
-            y: player_screen_pos.y.round(),
-            width: self.size * camera.zoom,
-            height: self.size * camera.zoom,
-        };
+        // Check if the ray is within bounds and not hitting a wall
+        while ray_end.x >= 0.0
+            && ray_end.y >= 0.0
+            && ((ray_end.x / world.tile_size as f32) as usize) < grid_width
+            && ((ray_end.y / world.tile_size as f32) as usize) < grid_height
+            && world.data[(ray_end.x / world.tile_size as f32) as usize]
+                [(ray_end.y / world.tile_size as f32) as usize]
+                != Blocks::STONE
+        {
+            ray_end.x += self.direction.x * step_size;
+            ray_end.y += self.direction.y * step_size;
+        }
 
-        let texture_section = Rectangle {
-            x: 0.0,
-            y: 0.0,
-            width: 32.0,
-            height: 32.0,
-        };
+        // Convert the world space positions to screen space for drawing
+        let ray_start_screen = Self::entity_to_screen(self.pos, camera);
+        let ray_end_screen = Self::entity_to_screen(ray_end, camera);
 
-        d.draw_texture_pro(
-            texture_atlas,
-            texture_section,
-            dest_rect,
-            Vector2::new(0.0, 0.0),
-            0.0,
-            Color::WHITE,
+        // Draw the ray
+        d.draw_line_ex(ray_start_screen, ray_end_screen, 5.0, Color::RED);
+    }
+
+    fn entity_to_screen(entity_pos: Vector2, camera: &Camera2D) -> Vector2 {
+        Vector2::new(
+            (entity_pos.x - camera.target.x) * camera.zoom + camera.offset.x,
+            (entity_pos.y - camera.target.y) * camera.zoom + camera.offset.y,
+        )
+    }
+
+    // This works now
+    pub fn player_to_world(&self, world: &World) -> Vector2 {
+        Vector2::new(
+            (self.pos.x / world.tile_size as f32).floor(),
+            (self.pos.y / world.tile_size as f32).floor(),
+        )
+    }
+
+    pub fn render_current_cell(
+        &self,
+        d: &mut RaylibDrawHandle,
+        world: &World,
+        player_world: Vector2,
+        camera: &Camera2D,
+    ) {
+        // Calculate the grid cell the player is in
+        let grid_cell_top_left_world = Vector2::new(
+            (player_world.x as f32) * world.tile_size as f32,
+            (player_world.y as f32) * world.tile_size as f32,
         );
 
-        // Calculate the center of the player in screen space
-        let player_center = Vector2::new(
-            player_screen_pos.x + (self.size * camera.zoom) / 2.0,
-            player_screen_pos.y + (self.size * camera.zoom) / 2.0,
+        // Transform the grid cell's top-left corner to screen space
+        let grid_cell_screen_top_left = Self::entity_to_screen(grid_cell_top_left_world, camera);
+
+        // Draw the blue square representing the grid cell
+        d.draw_rectangle(
+            grid_cell_screen_top_left.x as i32,
+            grid_cell_screen_top_left.y as i32,
+            world.tile_size as i32,
+            world.tile_size as i32,
+            Color::BLUE, // Semi-transparent blue
+        );
+    }
+
+    fn draw_direction_line(&self, d: &mut RaylibDrawHandle, camera: &Camera2D) {
+        // Transform the player's position to screen space
+        let player_screen_pos = Self::entity_to_screen(self.pos, camera);
+
+        // Calculate the end point of the direction line in world space
+        let direction_line_end_world = Vector2::new(
+            self.pos.x + self.direction.x * 50.0, // No zoom here, as this is in world space
+            self.pos.y + self.direction.y * 50.0,
         );
 
-        self.draw_ray_dda(d, player_center, world);
+        // Transform the end point to screen space
+        let direction_line_end_screen = Self::entity_to_screen(direction_line_end_world, camera);
 
-        self.draw_direction_line(d, player_center, camera);
-
-        //self.draw_line_to_mouse(d, player_center, camera);
-
-        // self.lerped_circles(d, 10, player_center, camera);
+        // Draw direction line in screen space
+        d.draw_line_ex(
+            player_screen_pos,
+            direction_line_end_screen,
+            5.0 * camera.zoom,
+            Color::RED,
+        );
     }
 
     // Alright we are raw-dogging this line drawing shit now
@@ -83,8 +149,8 @@ impl Player {
     fn draw_ray_dda(&self, d: &mut RaylibDrawHandle, player_center: Vector2, world: &World) {
         // Should be player coordinates
         let ray_start = Vector2::new(
-            self.x + world.tile_size as f32,
-            self.y + world.tile_size as f32,
+            self.pos.x + world.tile_size as f32,
+            self.pos.y + world.tile_size as f32,
         ); // Starting point of the ray
 
         // Should be the player directin which is normalized (cos and sin)
@@ -172,39 +238,18 @@ impl Player {
         );
     }
 
-    fn draw_direction_line(
-        &self,
-        d: &mut RaylibDrawHandle,
-        player_center: Vector2,
-        camera: &Camera2D,
-    ) {
-        // Calculate the end point of the direction line
-        let direction_line_end = Vector2::new(
-            player_center.x + self.direction.x * 50.0 * camera.zoom,
-            player_center.y + self.direction.y * 50.0 * camera.zoom,
-        );
-
-        // Draw direction short line
-        d.draw_line_ex(
-            player_center,
-            direction_line_end,
-            5.0 * camera.zoom,
-            Color::RED,
-        );
-    }
-
     pub fn input_update(&mut self, camera: &mut Camera2D) {
         unsafe {
             if ffi::IsKeyDown(ffi::KeyboardKey::KEY_W as c_int) {
-                self.x += self.direction.x * self.velocity;
-                self.y += self.direction.y * self.velocity;
+                self.pos.x += self.direction.x * self.velocity;
+                self.pos.y += self.direction.y * self.velocity;
             }
             if ffi::IsKeyDown(ffi::KeyboardKey::KEY_A as c_int) {
                 self.angle -= 4.0;
             }
             if ffi::IsKeyDown(ffi::KeyboardKey::KEY_S as c_int) {
-                self.x -= self.direction.x * self.velocity;
-                self.y -= self.direction.y * self.velocity;
+                self.pos.x -= self.direction.x * self.velocity;
+                self.pos.y -= self.direction.y * self.velocity;
             }
             if ffi::IsKeyDown(ffi::KeyboardKey::KEY_D as c_int) {
                 self.angle += 4.0;
@@ -226,16 +271,10 @@ impl Player {
                 println!("Zoom: {:.2}", camera.zoom);
             }
 
-            camera.target.x = self.x as f32;
-            camera.target.y = self.y as f32;
+            camera.target.x = self.pos.x;
+            camera.target.y = self.pos.y;
             self.direction.x = self.angle.to_radians().cos();
             self.direction.y = self.angle.to_radians().sin();
         }
-    }
-    fn entity_to_screen(entity_pos: Vector2, camera: &Camera2D) -> Vector2 {
-        Vector2::new(
-            (entity_pos.x - camera.target.x) * camera.zoom + camera.offset.x,
-            (entity_pos.y - camera.target.y) * camera.zoom + camera.offset.y,
-        )
     }
 }

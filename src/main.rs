@@ -31,7 +31,7 @@ fn main() -> io::Result<()> {
 
     // Load world from a file
     let world_result = World::from_file("data.cade");
-    let world = match world_result {
+    let mut world = match world_result {
         Ok(world) => world,
         Err(e) => {
             eprintln!("Error loading world: {}", e);
@@ -49,7 +49,7 @@ fn main() -> io::Result<()> {
         player.input_update(&mut renderer.camera);
 
         d.clear_background(Color::GRAY);
-        renderer.render(&mut d, &texture_atlas, &world, &player);
+        renderer.render(&mut d, &texture_atlas, &mut world, &player);
     }
 
     Ok(())

@@ -20,7 +20,7 @@ impl Renderer {
 
         Renderer {
             camera: Camera2D {
-                target: Vector2::new(player.x as f32, player.y as f32),
+                target: Vector2::new(player.pos.x as f32, player.pos.y as f32),
                 offset,
                 rotation: 0.0,
                 zoom: 1.0,
@@ -32,10 +32,10 @@ impl Renderer {
         &self,
         d: &mut RaylibDrawHandle,
         texture_atlas: &Texture2D,
-        world: &World,
+        world: &mut World,
         player: &Player,
     ) {
         world.render(d, texture_atlas, &self.camera);
-        player.render(d, texture_atlas, &self.camera, world);
+        player.render(d, &self.camera, world);
     }
 }
