@@ -21,13 +21,15 @@ impl Player {
     pub fn new() -> Self {
         Player {
             pos: Vector2::new(256.0, 256.0),
-            angle: 45.0,
+            angle: 0.0,
             velocity: 5.0,
             direction: Vector2::new(0.0, 0.0),
         }
     }
 
     pub fn render(&self, d: &mut RaylibDrawHandle, camera: &Camera2D, world: &mut World) {
+        // self.ray_cast_dda(d, world, camera);
+        self.draw_direction_line(d, camera);
         let player_screen_pos = Self::entity_to_screen(self.pos, camera);
 
         // Draw the circle at the center of the tile
@@ -39,12 +41,9 @@ impl Player {
             Color::BLUE,
         );
 
-        // self.render_current_cell(d, world, player_world, camera);
-
-        // self.draw_direction_line(d, camera);
+        // self.render_current_cell(d, world, camera);
 
         // self.ray_cast_brute_force(d, world, camera);
-        self.ray_cast_dda(d, world, camera);
     }
 
     pub fn ray_cast_dda(
@@ -60,7 +59,7 @@ impl Player {
         let ray_direction = self.direction;
 
         // Step direction: adding 1 or -1 in each direction
-        let step = Vector2::new(0.0, 0.0);
+        let mut step = Vector2::new(1.0, 1.0);
 
         // Get the current cell we're in
         let mut current_cell = Vector2::new(
@@ -78,22 +77,26 @@ impl Player {
         let mut ray_length = Vector2::new(0.0, 0.0);
 
         if ray_direction.x < 0.0 {
+            step.x = -1.0;
             ray_length.x =
-                ((current_cell.x * world.tile_size as f32) - ray_end.x).abs() * unit_step_size.x;
+                ((ray_end.x - (current_cell.x * world.tile_size as f32)).abs()) * unit_step_size.x;
         } else {
-            ray_length.x = (((current_cell.x + 1.0) * world.tile_size as f32) - ray_end.x).abs()
+            step.x = 1.0;
+            ray_length.x = ((((current_cell.x + 1.0) * world.tile_size as f32) - ray_end.x).abs())
                 * unit_step_size.x;
         }
 
         if ray_direction.y < 0.0 {
+            step.y = -1.0;
             ray_length.y =
-                ((current_cell.y * world.tile_size as f32) - ray_end.y).abs() * unit_step_size.y;
+                ((ray_end.y - (current_cell.y * world.tile_size as f32)).abs()) * unit_step_size.y;
         } else {
-            ray_length.y = (((current_cell.y + 1.0) * world.tile_size as f32) - ray_end.y).abs()
+            step.y = 1.0;
+            ray_length.y = ((((current_cell.y + 1.0) * world.tile_size as f32) - ray_end.y).abs())
                 * unit_step_size.y;
         }
 
-        // ==========================================================
+        /*
 
         // Calculate the intersection points along the ray's path
         let intersection_x = Vector2::new(
@@ -121,40 +124,41 @@ impl Player {
             Color::YELLOW, // Line along the ray for y-axis intersection
         );
 
-        // ===========================================================
+        */
 
-        /*
         let mut tile_found = false;
+        let max_distance = 100.0;
+        let mut distance = 0.0;
 
-        while !tile_found {
+        while !tile_found && distance < max_distance {
+            // Draw the current tile
+            // Self::draw_visited_tile(d, current_cell, world.tile_size as f32, camera);
+
             if ray_length.x < ray_length.y {
                 current_cell.x += step.x;
+                distance = ray_length.x;
                 ray_length.x += unit_step_size.x;
             } else {
                 current_cell.y += step.y;
-                ray_length.x += unit_step_size.x;
+                distance = ray_length.y;
+                ray_length.y += unit_step_size.y;
             }
-            // Check if the current cell contains a wall
-            if world.data[current_cell.x as usize][current_cell.y as usize] == Blocks::STONE {
-                tile_found = true;
+            if current_cell.x >= 0.0
+                && (current_cell.x as usize) < world.data[0].len()
+                && current_cell.y >= 0.0
+                && (current_cell.y as usize) < world.data[0].len()
+            {
+                // Check if the current cell contains a wall
+                if world.data[current_cell.x as usize][current_cell.y as usize] == Blocks::STONE {
+                    tile_found = true;
+                }
             }
         }
 
-
-        // Calculate final ray endpoint
-        ray_end = if ray_length.x < ray_length.y {
-            Vector2::new(
-                current_cell.x * world.tile_size as f32,
-                ray_end.y + ray_direction.y * ray_length.x,
-            )
-        } else {
-            Vector2::new(
-                ray_end.x + ray_direction.x * ray_length.y,
-                current_cell.y * world.tile_size as f32,
-            )
-        };
-
-        */
+        if tile_found {
+            ray_end = self.pos + ray_direction * distance;
+            //Self::draw_hitpoint_circle(d, ray_end, camera, 5.0);
+        }
 
         // Draw final ray
         d.draw_line_ex(
@@ -166,6 +170,78 @@ impl Player {
 
         ray_end
     }
+
+    fn draw_hitpoint_circle(
+        d: &mut RaylibDrawHandle,
+        hitpoint: Vector2,
+        camera: &Camera2D,
+        radius: f32,
+    ) {
+        // Convert the hitpoint to screen space
+        let screen_pos = Self::entity_to_screen(hitpoint, camera);
+
+        // Draw a circle at the hitpoint
+        d.draw_circle(
+            screen_pos.x as i32,
+            screen_pos.y as i32,
+            radius * camera.zoom,
+            Color::GREEN,
+        );
+    }
+
+    fn draw_visited_tile(
+        d: &mut RaylibDrawHandle,
+        tile_pos: Vector2,
+        tile_size: f32,
+        camera: &Camera2D,
+    ) {
+        // Convert the tile position to screen space
+        let screen_pos = Self::entity_to_screen(
+            Vector2::new(tile_pos.x * tile_size, tile_pos.y * tile_size),
+            camera,
+        );
+
+        // Draw a semi-transparent square for the visited tile
+        d.draw_rectangle(
+            screen_pos.x as i32,
+            screen_pos.y as i32,
+            (tile_size * camera.zoom) as i32,
+            (tile_size * camera.zoom) as i32,
+            Color::GRAY,
+        );
+    }
+
+    /*
+
+    // ==========================================================
+
+    // Calculate the intersection points along the ray's path
+    let intersection_x = Vector2::new(
+        ray_end.x + ray_direction.x * ray_length.x,
+        ray_end.y + ray_direction.y * ray_length.x,
+    );
+
+    let intersection_y = Vector2::new(
+        ray_end.x + ray_direction.x * ray_length.y,
+        ray_end.y + ray_direction.y * ray_length.y,
+    );
+    // Draw the line to the x-axis intersection
+    d.draw_line_ex(
+        Self::entity_to_screen(self.pos, camera),
+        Self::entity_to_screen(intersection_x, camera),
+        8.0,
+        Color::GREEN, // Line along the ray for x-axis intersection
+    );
+
+    // Draw the line to the y-axis intersection
+    d.draw_line_ex(
+        Self::entity_to_screen(self.pos, camera),
+        Self::entity_to_screen(intersection_y, camera),
+        2.0,
+        Color::YELLOW, // Line along the ray for y-axis intersection
+    );
+
+    */
 
     pub fn ray_cast_brute_force(
         &self,

@@ -4,9 +4,9 @@ use std::io::{self, Read};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Blocks {
-    GRASS = 0,
-    STONE = 1,
-    PLAYER = 2,
+    GRASS,
+    STONE,
+    PLAYER,
 }
 
 impl Blocks {
@@ -27,10 +27,10 @@ pub struct World {
 }
 
 impl World {
-    pub fn new(size: usize) -> Self {
+    pub fn new() -> Self {
         World {
-            data: vec![vec![Blocks::STONE; 8]; 8],
-            size,
+            data: vec![vec![Blocks::GRASS; 8]; 8],
+            size: 8,
             tile_size: 64,
         }
     }

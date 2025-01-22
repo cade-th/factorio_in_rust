@@ -6,6 +6,7 @@ const SCREEN_WIDTH: u32 = 1024;
 const SCREEN_HEIGHT: u32 = 1024;
 const FPS: u32 = 64;
 
+use crate::world::Blocks;
 use player::Player;
 use render::Renderer;
 use world::World;
@@ -29,19 +30,30 @@ fn main() -> io::Result<()> {
 
     let mut player = Player::new();
 
-    // Load world from a file
-    let world_result = World::from_file("data.cade");
-    let mut world = match world_result {
-        Ok(world) => world,
-        Err(e) => {
-            eprintln!("Error loading world: {}", e);
-            return Err(e);
-        }
-    };
+    /*
+
+        // Load world from a file
+        let world_result = World::from_file("data.cade");
+        let mut world = match world_result {
+            Ok(world) => world,
+            Err(e) => {
+                eprintln!("Error loading world: {}", e);
+                return Err(e);
+            }
+        };
+
+    */
+
+    let mut world = World::new();
 
     let mut renderer = Renderer::new(&player);
 
     rl.set_target_fps(FPS);
+
+    world.data[4][4] = Blocks::STONE;
+    world.data[5][4] = Blocks::STONE;
+    world.data[4][5] = Blocks::STONE;
+    world.data[6][4] = Blocks::STONE;
 
     while !rl.window_should_close() {
         let mut d = rl.begin_drawing(&thread);
