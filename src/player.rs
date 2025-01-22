@@ -57,11 +57,10 @@ impl Player {
         let mut ray_end = self.pos;
 
         // Ray direction (assumed normalized)
-        let ray_angle = self.angle;
         let ray_direction = self.direction;
 
         // Step direction: adding 1 or -1 in each direction
-        let mut step = Vector2::new(0.0, 0.0);
+        let step = Vector2::new(0.0, 0.0);
 
         // Get the current cell we're in
         let mut current_cell = Vector2::new(
@@ -94,6 +93,8 @@ impl Player {
                 * unit_step_size.y;
         }
 
+        // ==========================================================
+
         // Calculate the intersection points along the ray's path
         let intersection_x = Vector2::new(
             ray_end.x + ray_direction.x * ray_length.x,
@@ -104,26 +105,56 @@ impl Player {
             ray_end.x + ray_direction.x * ray_length.y,
             ray_end.y + ray_direction.y * ray_length.y,
         );
-
-        // Convert the intersection points to screen space
-        let player_screen_pos = Self::entity_to_screen(self.pos, camera);
-        let intersection_x_screen = Self::entity_to_screen(intersection_x, camera);
-        let intersection_y_screen = Self::entity_to_screen(intersection_y, camera);
-
-        // Draw lines along the ray's path to these intersection points
+        // Draw the line to the x-axis intersection
         d.draw_line_ex(
-            player_screen_pos,
-            intersection_x_screen,
-            5.0,
+            Self::entity_to_screen(self.pos, camera),
+            Self::entity_to_screen(intersection_x, camera),
+            8.0,
             Color::GREEN, // Line along the ray for x-axis intersection
         );
 
+        // Draw the line to the y-axis intersection
         d.draw_line_ex(
-            player_screen_pos,
-            intersection_y_screen,
+            Self::entity_to_screen(self.pos, camera),
+            Self::entity_to_screen(intersection_y, camera),
             2.0,
             Color::YELLOW, // Line along the ray for y-axis intersection
         );
+
+        // ===========================================================
+
+        /*
+        let mut tile_found = false;
+
+        while !tile_found {
+            if ray_length.x < ray_length.y {
+                current_cell.x += step.x;
+                ray_length.x += unit_step_size.x;
+            } else {
+                current_cell.y += step.y;
+                ray_length.x += unit_step_size.x;
+            }
+            // Check if the current cell contains a wall
+            if world.data[current_cell.x as usize][current_cell.y as usize] == Blocks::STONE {
+                tile_found = true;
+            }
+        }
+
+
+        // Calculate final ray endpoint
+        ray_end = if ray_length.x < ray_length.y {
+            Vector2::new(
+                current_cell.x * world.tile_size as f32,
+                ray_end.y + ray_direction.y * ray_length.x,
+            )
+        } else {
+            Vector2::new(
+                ray_end.x + ray_direction.x * ray_length.y,
+                current_cell.y * world.tile_size as f32,
+            )
+        };
+
+        */
 
         // Draw final ray
         d.draw_line_ex(
@@ -134,62 +165,6 @@ impl Player {
         );
 
         ray_end
-    }
-
-    fn draw_ray_lengths(
-        d: &mut RaylibDrawHandle,
-        ray_start: Vector2,
-        ray_direction: Vector2,
-        ray_length: Vector2,
-        camera: &Camera2D,
-    ) {
-        // Calculate the endpoint for the horizontal (x-axis) ray length
-        let ray_length_x_end =
-            Vector2::new(ray_start.x + ray_direction.x * ray_length.x, ray_start.y);
-
-        // Calculate the endpoint for the vertical (y-axis) ray length
-        let ray_length_y_end =
-            Vector2::new(ray_start.x, ray_start.y + ray_direction.y * ray_length.y);
-
-        // Convert world positions to screen positions
-        let ray_start_screen = Self::entity_to_screen(ray_start, camera);
-        let ray_length_x_screen = Self::entity_to_screen(ray_length_x_end, camera);
-        let ray_length_y_screen = Self::entity_to_screen(ray_length_y_end, camera);
-
-        // Draw the horizontal (x-axis) ray length
-        d.draw_line_ex(
-            ray_start_screen,
-            ray_length_x_screen,
-            2.0,
-            Color::GREEN, // Horizontal ray length in green
-        );
-
-        // Draw the vertical (y-axis) ray length
-        d.draw_line_ex(
-            ray_start_screen,
-            ray_length_y_screen,
-            2.0,
-            Color::YELLOW, // Vertical ray length in yellow
-        );
-    }
-
-    pub fn get_quadrant(angle: f32) -> Vector2 {
-        let mut return_vec = Vector2::new(0.0, 0.0);
-
-        // Determine which quadrant the ray is in
-        if angle >= 0.0 && angle <= 180.0 {
-            return_vec.y = 1.0;
-        } else {
-            return_vec.y = -1.0;
-        }
-
-        if angle >= 90.0 && angle <= 270.0 {
-            return_vec.x = -1.0;
-        } else {
-            return_vec.x = 1.0;
-        }
-
-        return_vec
     }
 
     pub fn ray_cast_brute_force(
