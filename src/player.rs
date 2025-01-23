@@ -48,32 +48,70 @@ impl Player {
     }
 
     pub fn raycast_dda(&self, d: &mut RaylibDrawHandle, camera: &Camera2D, world: &World) {
+        let mut ray_start = self.pos;
+        let ray_angle = self.angle;
+
         // Get the current cell that the ray is inside
-        let mut grid_pos = Self::entity_to_world(&self.pos, world);
+        let mut grid_pos = Self::entity_to_world(&ray_start, world);
 
         // Determine the direction from that
-        //right
-        grid_pos.x += if self.angle.to_radians().cos() > 0.0 {
-            1.0
-        //left
-        } else {
-            0.0
-        };
-        //up
-        grid_pos.y += if self.angle.to_radians().sin() > 0.0 {
-            1.0
-        //down
-        } else {
-            0.0
-        };
+        if ray_angle.to_radians().cos() > 0.0 {
+            grid_pos.x += 1.0;
+        }
+        if ray_angle.to_radians().sin() > 0.0 {
+            grid_pos.y += 1.0;
+        }
 
         // Turn the cell coordinates entity coordinates
         grid_pos = Self::world_to_entity(grid_pos, world);
 
-        let intersection_x = self.intersection_point_x(grid_pos);
-        let intersection_y = self.intersection_point_y(grid_pos);
+        let intersection_vertical_1 =
+            Self::intersection_point_vertical(d, camera, grid_pos, ray_angle, ray_start);
 
-        let result = self.inter_section_point(d, camera, &grid_pos, intersection_x, intersection_y);
+        // =================================================================================
+
+        ray_start = intersection_vertical_1.1;
+
+        grid_pos = Self::entity_to_world(&ray_start, world);
+
+        if ray_angle.to_radians().cos() > 0.0 {
+            grid_pos.x += 1.0;
+        } else {
+            grid_pos.x -= 1.0;
+        }
+        grid_pos = Self::world_to_entity(grid_pos, world);
+
+        let intersection_vertical_2 =
+            Self::intersection_point_vertical(d, camera, grid_pos, ray_angle, ray_start);
+
+        // =================================================================================
+
+        //let _intersection_horizontal =
+        //    Self::intersection_point_horizontal(d, camera, grid_pos, ray_angle, ray_start);
+    }
+
+    pub fn intersection_point_vertical(
+        d: &mut RaylibDrawHandle,
+        camera: &Camera2D,
+        grid_pos: Vector2,
+        ray_angle: f32,
+        ray_start: Vector2,
+    ) -> (f32, Vector2) {
+        let opp = (grid_pos.x - ray_start.x) * ray_angle.to_radians().tan();
+
+        let ray_length = opp / ray_angle.to_radians().cos();
+
+        let y = ray_start.y + opp;
+
+        let final_vec = Vector2::new(grid_pos.x, y);
+
+        d.draw_circle(
+            Self::entity_to_screen(&final_vec, &camera).x as i32,
+            Self::entity_to_screen(&final_vec, &camera).y as i32,
+            5.0,
+            Color::BLUE,
+        );
+        (ray_length, final_vec)
     }
 
     pub fn inter_section_point(
@@ -103,48 +141,29 @@ impl Player {
         }
     }
 
-    pub fn intersection_point_x(&self, grid_pos: Vector2) -> (f32, Vector2) {
-        let adjacent = grid_pos.x - self.pos.x;
+    pub fn intersection_point_horizontal(
+        d: &mut RaylibDrawHandle,
+        camera: &Camera2D,
+        grid_pos: Vector2,
+        ray_angle: f32,
+        ray_start: Vector2,
+    ) -> (f32, Vector2) {
+        let adj = (grid_pos.y - ray_start.y) / ray_angle.to_radians().tan();
 
-        let hypotenuse = adjacent / self.angle.to_radians().cos();
+        let ray_length = adj / ray_angle.to_radians().sin();
 
-        let b = hypotenuse * self.angle.to_radians().sin();
-
-        let y = self.pos.y + b;
-
-        let final_vec = Vector2::new(grid_pos.x, y);
-
-        /*
-        d.draw_circle(
-            Self::entity_to_screen(&final_vec, &camera).x as i32,
-            Self::entity_to_screen(&final_vec, &camera).y as i32,
-            5.0,
-            Color::BLUE,
-        );
-        */
-
-        (hypotenuse, final_vec)
-    }
-
-    pub fn intersection_point_y(&self, grid_pos: Vector2) -> (f32, Vector2) {
-        let adjacent = grid_pos.y - self.pos.y;
-
-        let hypotenuse = adjacent / self.angle.to_radians().sin();
-
-        let x = self.pos.x + hypotenuse * self.angle.to_radians().cos();
+        let x = ray_start.x + adj;
 
         let final_vec = Vector2::new(x, grid_pos.y);
 
-        /*
         d.draw_circle(
             Self::entity_to_screen(&final_vec, &camera).x as i32,
             Self::entity_to_screen(&final_vec, &camera).y as i32,
             5.0,
             Color::RED,
         );
-        */
 
-        return (hypotenuse, final_vec);
+        return (ray_length, final_vec);
     }
 
     /*
