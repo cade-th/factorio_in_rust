@@ -39,3 +39,25 @@ impl Renderer {
         player.render(d, &self.camera, world);
     }
 }
+
+pub fn entity_to_screen(entity_pos: Vector2, camera: &Camera2D) -> Vector2 {
+    Vector2::new(
+        (entity_pos.x - camera.target.x) * camera.zoom + camera.offset.x,
+        (entity_pos.y - camera.target.y) * camera.zoom + camera.offset.y,
+    )
+}
+
+// This works now
+pub fn entity_to_world(entity: Vector2, world: &World) -> Vector2 {
+    Vector2::new(
+        (entity.x / world.tile_size as f32).floor(),
+        (entity.y / world.tile_size as f32).floor(),
+    )
+}
+
+pub fn world_to_entity(world_pos: Vector2, world: &World) -> Vector2 {
+    Vector2::new(
+        world_pos.x * world.tile_size as f32,
+        world_pos.y * world.tile_size as f32,
+    )
+}

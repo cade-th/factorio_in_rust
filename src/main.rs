@@ -4,9 +4,9 @@
 
 const SCREEN_WIDTH: u32 = 1024;
 const SCREEN_HEIGHT: u32 = 1024;
-const FPS: u32 = 64;
+const FPS: u32 = 20;
 
-use crate::world::Blocks;
+// use crate::world::Blocks;
 use player::Player;
 use render::Renderer;
 use world::World;
@@ -14,6 +14,7 @@ use world::World;
 use raylib::prelude::*;
 use std::io;
 
+pub mod my_ray;
 pub mod player;
 pub mod render;
 pub mod world;
@@ -46,10 +47,12 @@ fn main() -> io::Result<()> {
 
     rl.set_target_fps(FPS);
 
+    /*
     world.data[4][4] = Blocks::STONE;
     world.data[5][4] = Blocks::STONE;
     world.data[4][5] = Blocks::STONE;
     world.data[6][4] = Blocks::STONE;
+    */
 
     while !rl.window_should_close() {
         let mut d = rl.begin_drawing(&thread);
