@@ -48,18 +48,12 @@ impl Player {
     }
 
     pub fn raycast_dda(&self, d: &mut RaylibDrawHandle, camera: &Camera2D, world: &World) {
-        let ray_start = self.pos;
         let ray_angle = self.angle;
-
-        let mut grid_pos = Self::entity_to_world(self.pos, world);
-
-        if ray_angle.to_radians().cos() < 0.0 {
-            grid_pos.x += 1.0;
-        }
-
-        grid_pos = Self::world_to_entity(grid_pos, world);
+        let ray_start = self.pos;
+        let mut grid_pos = Self::entity_to_world(ray_start, ray_angle, world);
 
         // =================================================================================
+        /*
 
         let intersection_1 =
             Self::find_vertical(&mut grid_pos, world, camera, d, ray_angle, ray_start);
@@ -68,15 +62,23 @@ impl Player {
         let _intersection_3 =
             Self::find_vertical(&mut grid_pos, world, camera, d, ray_angle, intersection_2);
 
+        */
+
         // =================================================================================
+        let adj = (grid_pos.y - ray_start.y) / ray_angle.to_radians().tan();
 
-        grid_pos = Self::entity_to_world(self.pos, world);
+        let x = ray_start.x + adj;
 
-        if ray_angle.to_radians().sin() < 0.0 {
-            grid_pos.y += 1.0;
-        }
+        let final_vec = Vector2::new(x, grid_pos.y);
 
-        grid_pos = Self::world_to_entity(grid_pos, world);
+        d.draw_circle(
+            Self::entity_to_screen(final_vec, &camera).x as i32,
+            Self::entity_to_screen(final_vec, &camera).y as i32,
+            5.0,
+            Color::RED,
+        );
+
+        grid_pos = Self::entity_to_world(self.pos, ray_angle, world);
 
         //let _intersection_horizontal =
         let intersection_4 =
@@ -87,40 +89,6 @@ impl Player {
             Self::find_horizontal(&mut grid_pos, world, camera, d, ray_angle, intersection_5);
     }
 
-    pub fn find_vertical(
-        grid_pos: &mut Vector2,
-        world: &World,
-        camera: &Camera2D,
-        d: &mut RaylibDrawHandle,
-        ray_angle: f32,
-        ray_start: Vector2,
-    ) -> Vector2 {
-        *grid_pos = Self::entity_to_world(*grid_pos, world);
-
-        if ray_angle.to_radians().cos() > 0.0 {
-            grid_pos.x += 1.0;
-        } else {
-            grid_pos.x -= 1.0;
-        }
-        *grid_pos = Self::world_to_entity(*grid_pos, world);
-
-        let opp = (grid_pos.x - ray_start.x) * ray_angle.to_radians().tan();
-
-        let ray_length = opp / ray_angle.to_radians().cos();
-
-        let y = ray_start.y + opp;
-
-        let final_vec = Vector2::new(grid_pos.x, y);
-
-        d.draw_circle(
-            Self::entity_to_screen(final_vec, &camera).x as i32,
-            Self::entity_to_screen(final_vec, &camera).y as i32,
-            5.0,
-            Color::BLUE,
-        );
-        final_vec
-    }
-
     pub fn find_horizontal(
         grid_pos: &mut Vector2,
         world: &World,
@@ -129,7 +97,7 @@ impl Player {
         ray_angle: f32,
         ray_start: Vector2,
     ) -> Vector2 {
-        *grid_pos = Self::entity_to_world(*grid_pos, world);
+        *grid_pos = Self::entity_to_world(ray_start, ray_angle, world);
 
         if ray_angle.to_radians().sin() > 0.0 {
             grid_pos.y += 1.0;
@@ -154,6 +122,58 @@ impl Player {
         );
 
         return final_vec;
+    }
+
+    // This works now
+    pub fn entity_to_world(entity: Vector2, angle: f32, world: &World) -> Vector2 {
+        let mut world_vec = Vector2::new(0.0, 0.0);
+
+        if angle.to_radians().sin() > 0.0 {
+            world_vec.y = (entity.y / world.tile_size as f32).ceil();
+        } else {
+            world_vec.y = (entity.y / world.tile_size as f32).floor();
+        }
+        if angle.to_radians().cos() > 0.0 {
+            world_vec.x = (entity.x / world.tile_size as f32).ceil();
+        } else {
+            world_vec.x = (entity.x / world.tile_size as f32).floor();
+        }
+
+        return world_vec;
+    }
+
+    pub fn find_vertical(
+        grid_pos: &mut Vector2,
+        world: &World,
+        camera: &Camera2D,
+        d: &mut RaylibDrawHandle,
+        ray_angle: f32,
+        ray_start: Vector2,
+    ) -> Vector2 {
+        *grid_pos = Self::entity_to_world(ray_start, ray_angle, world);
+
+        if ray_angle.to_radians().cos() > 0.0 {
+            grid_pos.x += 1.0;
+        } else {
+            grid_pos.x -= 1.0;
+        }
+        *grid_pos = Self::world_to_entity(*grid_pos, world);
+
+        let opp = (grid_pos.x - ray_start.x) * ray_angle.to_radians().tan();
+
+        let ray_length = opp / ray_angle.to_radians().cos();
+
+        let y = ray_start.y + opp;
+
+        let final_vec = Vector2::new(grid_pos.x, y);
+
+        d.draw_circle(
+            Self::entity_to_screen(final_vec, &camera).x as i32,
+            Self::entity_to_screen(final_vec, &camera).y as i32,
+            5.0,
+            Color::BLUE,
+        );
+        final_vec
     }
 
     pub fn inter_section_point(
@@ -229,14 +249,6 @@ impl Player {
         Vector2::new(
             (entity_pos.x - camera.target.x) * camera.zoom + camera.offset.x,
             (entity_pos.y - camera.target.y) * camera.zoom + camera.offset.y,
-        )
-    }
-
-    // This works now
-    pub fn entity_to_world(entity: Vector2, world: &World) -> Vector2 {
-        Vector2::new(
-            (entity.x / world.tile_size as f32).floor(),
-            (entity.y / world.tile_size as f32).floor(),
         )
     }
 
