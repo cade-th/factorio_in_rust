@@ -30,21 +30,17 @@ fn main() -> io::Result<()> {
 
     let mut player = Player::new();
 
-    /*
+    // Load world from a file
+    let world_result = World::from_file("data.cade");
+    let mut world = match world_result {
+        Ok(world) => world,
+        Err(e) => {
+            eprintln!("Error loading world: {}", e);
+            return Err(e);
+        }
+    };
 
-        // Load world from a file
-        let world_result = World::from_file("data.cade");
-        let mut world = match world_result {
-            Ok(world) => world,
-            Err(e) => {
-                eprintln!("Error loading world: {}", e);
-                return Err(e);
-            }
-        };
-
-    */
-
-    let mut world = World::new();
+    //     let mut world = World::new();
 
     let mut renderer = Renderer::new(&player);
 

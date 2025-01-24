@@ -43,7 +43,7 @@ impl Player {
             Color::RED,
         );
 
-        Self::raycast_dda(self, d, camera, world);
+        Self::raycast_dda_2(self, d, camera, world);
         // self.ray_cast_brute_force(d, world, camera);
     }
 
@@ -70,6 +70,8 @@ impl Player {
 
         // =================================================================================
 
+        /*
+
         grid_pos = Self::entity_to_world(self.pos, world);
 
         if ray_angle.to_radians().sin() < 0.0 {
@@ -85,6 +87,129 @@ impl Player {
             Self::find_horizontal(&mut grid_pos, world, camera, d, ray_angle, intersection_4);
         let intersectoin_6 =
             Self::find_horizontal(&mut grid_pos, world, camera, d, ray_angle, intersection_5);
+
+        */
+    }
+
+    pub fn dist(ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
+        ((bx - ax).powi(2) + (by - ay).powi(2)).sqrt()
+    }
+
+    pub fn raycast_dda_2(&self, d: &mut RaylibDrawHandle, camera: &Camera2D, world: &World) {
+        let ray_angle = self.angle;
+        let mut ray_pos = Vector2::new(0.0, 0.0);
+
+        let mut y_offset = 0.0;
+        let mut x_offset = 0.0;
+        let mut dof: i32 = 0;
+        let mut mx;
+        let mut my;
+
+        let mut dish = 100000.0;
+        let mut hx = self.pos.x;
+        let mut hy = self.pos.y;
+
+        // Check Horizontal Lines
+        let mut atan = -1.0 / ray_angle.to_radians().tan();
+
+        if ray_angle.to_radians().sin() < 0.0 {
+            ray_pos.y = (((self.pos.y as i32) >> 6) << 6) as f32 - 0.0001;
+            ray_pos.x = self.pos.x + (self.pos.y - ray_pos.y) * atan;
+            y_offset = -(world.tile_size as f32);
+            x_offset = y_offset * atan;
+        } else if ray_angle.to_radians().sin() > 0.0 {
+            ray_pos.y = (((self.pos.y as i32) >> 6) << 6) as f32 + world.tile_size as f32;
+            ray_pos.x = self.pos.x + (self.pos.y - ray_pos.y) * atan;
+            y_offset = world.tile_size as f32;
+            x_offset = y_offset * atan;
+        } else {
+            ray_pos.x = self.pos.x;
+            ray_pos.y = self.pos.y;
+            dof = 8;
+        }
+
+        while dof < 8 {
+            mx = (ray_pos.x as i32) >> 6;
+            my = (ray_pos.y as i32) >> 6;
+
+            if mx >= 0 && my >= 0 && mx < world.data.len() as i32 && my < world.data[0].len() as i32
+            {
+                if world.data[mx as usize][my as usize] == Blocks::STONE {
+                    dof = 8;
+                    hx = ray_pos.x;
+                    hy = ray_pos.y;
+                    dish = Self::dist(self.pos.x, self.pos.y, hx, hy);
+                } else {
+                    ray_pos.x -= x_offset;
+                    ray_pos.y += y_offset;
+                    dof += 1;
+                }
+            } else {
+                dof = 8;
+            }
+        }
+
+        dof = 0;
+        let mut disv = 100000.0;
+        let mut vx = self.pos.x;
+        let mut vy = self.pos.y;
+
+        // Check Vertical Lines
+        atan = -ray_angle.to_radians().tan();
+
+        if ray_angle.to_radians().cos() < 0.0 {
+            ray_pos.x = (((self.pos.x as i32) >> 6) << 6) as f32 - 0.0001;
+            ray_pos.y = self.pos.y + (self.pos.x - ray_pos.x) * atan;
+            x_offset = -(world.tile_size as f32);
+            y_offset = x_offset * atan;
+        } else if ray_angle.to_radians().cos() > 0.0 {
+            ray_pos.x = (((self.pos.x as i32) >> 6) << 6) as f32 + world.tile_size as f32;
+            ray_pos.y = self.pos.y + (self.pos.x - ray_pos.x) * atan;
+            x_offset = world.tile_size as f32;
+            y_offset = x_offset * atan;
+        } else {
+            ray_pos.x = self.pos.x;
+            ray_pos.y = self.pos.y;
+            dof = 8;
+        }
+
+        while dof < 8 {
+            mx = (ray_pos.x as i32) >> 6;
+            my = (ray_pos.y as i32) >> 6;
+
+            if mx >= 0 && my >= 0 && mx < world.data.len() as i32 && my < world.data[0].len() as i32
+            {
+                if world.data[mx as usize][my as usize] == Blocks::STONE {
+                    dof = 8;
+                    vx = ray_pos.x;
+                    vy = ray_pos.y;
+                    disv = Self::dist(self.pos.x, self.pos.y, vx, vy);
+                } else {
+                    ray_pos.x += x_offset;
+                    ray_pos.y -= y_offset;
+                    dof += 1;
+                }
+            } else {
+                dof = 8;
+            }
+        }
+
+        // Compare distances and set the final ray position
+        if disv < dish {
+            ray_pos.x = vx;
+            ray_pos.y = vy;
+        } else {
+            ray_pos.x = hx;
+            ray_pos.y = hy;
+        }
+
+        // Draw the final ray position
+        d.draw_circle(
+            Self::entity_to_screen(ray_pos, &camera).x as i32,
+            Self::entity_to_screen(ray_pos, &camera).y as i32,
+            10.0,
+            Color::BLUE,
+        );
     }
 
     pub fn find_vertical(
