@@ -33,10 +33,10 @@ pub struct World {
 }
 
 impl World {
-    pub fn new() -> Self {
+    pub fn new(world_size: usize) -> Self {
         World {
-            data: vec![vec![Blocks::GRASS; 8]; 8],
-            size: 8,
+            data: vec![vec![Blocks::GRASS; world_size]; world_size],
+            size: world_size,
             tile_size: 64,
         }
     }

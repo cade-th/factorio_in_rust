@@ -70,7 +70,7 @@ impl RMinimap {
         camera: &mut Camera2D,
     ) {
         world.render(d, texture_atlas, camera);
-        player.render(state, d, camera, world);
+        player.render(state, d, camera);
         camera.target = Vector2::new(player.pos.x as f32, player.pos.y as f32);
         camera.offset = Vector2::new(
             unsafe { raylib::ffi::GetScreenWidth() as f32 / 2.0 },
@@ -110,7 +110,7 @@ impl RFPS {
         player: &Player,
         camera: &mut Camera2D,
     ) {
-        player.render(state, d, camera, world);
+        player.render(state, d, camera);
         // d.draw_circle(200, 200, 20.0, Color::RED);
     }
 }

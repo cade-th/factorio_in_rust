@@ -41,7 +41,7 @@ pub fn raycast_dda(start: Vector2, angle: f32, world: &World) -> (f32, Vector2) 
     let mut mx;
     let mut my;
 
-    let mut dish = 100000.0;
+    let mut dish = 10000.0;
     let mut hx = start.x;
     let mut hy = start.y;
 

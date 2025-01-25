@@ -35,7 +35,8 @@ fn main() -> io::Result<()> {
         .load_texture(&thread, "./player_sheet.png")
         .expect("Failed to load texture");
 
-    let mut player = Player::new();
+    let mut world = World::new(32);
+    let mut player = Player::new(&mut world);
     let mut selector = Selector::new();
 
     /*
@@ -49,8 +50,6 @@ fn main() -> io::Result<()> {
             }
         };
     */
-
-    let mut world = World::new();
 
     let mut renderer = Renderer::new(RendererType::Minimap);
 

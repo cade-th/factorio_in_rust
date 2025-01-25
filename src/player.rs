@@ -12,46 +12,38 @@ use std::os::raw::c_int;
 // 1. set discrete values for zoom
 // 2. Only draw rays when player moves to put less stress on the cpu
 
+const NUM_RAYS: i32 = 200;
+
 pub struct Player {
     pub pos: Vector2,
     velocity: f32,
     direction: Vector2, // cos and sin values
     angle: f32,
+    distances: Vec<Vector2>,
 }
 
 impl Player {
-    pub fn new() -> Self {
+    pub fn new(world: &mut World) -> Self {
+        let pos = Vector2::new(256.0, 256.0);
+        let angle = 0.0;
         Player {
-            pos: Vector2::new(256.0, 256.0),
-            angle: 0.0,
+            pos,
+            angle,
             velocity: 10.0,
             direction: Vector2::new(0.0, 0.0),
+            distances: my_ray::cast_fov(pos, angle, 60.0, NUM_RAYS, world).1,
         }
     }
 
-    pub fn render(
-        &self,
-        state: &State,
-        d: &mut RaylibDrawHandle,
-        camera: &Camera2D,
-        world: &mut World,
-    ) {
-        // Move this somewhere
-        let distances = my_ray::cast_fov(self.pos, self.angle, 60.0, 150, world).1;
-
+    pub fn render(&self, state: &State, d: &mut RaylibDrawHandle, camera: &Camera2D) {
         if state.view == View::FPS {
-            Self::render_fps(self, distances, state, d);
+            Self::render_fps(self, state, d);
         } else {
-            Self::render_minimap(self, distances, d, camera);
+            Self::render_minimap(self, d, camera);
         }
     }
 
-    pub fn render_minimap(
-        &self,
-        distances: Vec<Vector2>,
-        d: &mut RaylibDrawHandle,
-        camera: &Camera2D,
-    ) {
+    pub fn render_minimap(&self, d: &mut RaylibDrawHandle, camera: &Camera2D) {
         Self::draw_direction_line(self, d, camera);
         // Draw the circle at the center of the tile
         let player_radius = 5.0 * camera.zoom;
@@ -62,8 +54,8 @@ impl Player {
             Color::RED,
         );
 
-        for i in 0..distances.len() {
-            let ray_pos = distances[i];
+        for i in 0..self.distances.len() {
+            let ray_pos = self.distances[i];
             // Convert the world space positions to screen space for drawing
             let ray_start_screen = render::entity_to_screen(self.pos, camera);
             let ray_end_screen = render::entity_to_screen(ray_pos, camera);
@@ -71,41 +63,36 @@ impl Player {
             // Draw the ray
             d.draw_line_ex(ray_start_screen, ray_end_screen, 2.0, Color::BLUE);
         }
-
-        /*
-         */
     }
 
-    pub fn render_fps(&self, distances: Vec<Vector2>, state: &State, d: &mut RaylibDrawHandle) {
-        let screen_width = state.screen_width;
-        let screen_height = state.screen_height;
-        let num_rays = distances.len();
-        let column_width = screen_width as f32 / num_rays as f32;
+    pub fn render_fps(&self, state: &State, d: &mut RaylibDrawHandle) {
+        let num_rays = self.distances.len();
+        let column_width = (state.screen_width / num_rays as i32) as i32;
 
-        for (i, hit_point) in distances.iter().enumerate() {
+        for (i, hit_point) in self.distances.iter().enumerate() {
             // Calculate distance to the wall
             let dx = hit_point.x - self.pos.x;
             let dy = hit_point.y - self.pos.y;
             let distance = (dx * dx + dy * dy).sqrt();
 
-            // Correct for fish-eye effect by multiplying by the cosine of the ray angle
+            // Correct for fish-eye effect
             let angle_offset = (i as f32 / num_rays as f32 - 0.5) * 60.0_f32.to_radians();
             let corrected_distance = distance * angle_offset.cos();
 
-            // Calculate wall height relative to corrected distance
-            let wall_height = (screen_height as f32 * 50.0) / corrected_distance;
+            // Calculate wall height
+            let wall_height = (state.screen_height as f32 * 50.0) / corrected_distance;
 
-            // Determine the color intensity based on the distance (farther = darker)
+            // Determine color intensity
             let intensity = (1.0 - (corrected_distance / 500.0).min(1.0)) * 255.0;
             let wall_color = Color::new(intensity as u8, intensity as u8, intensity as u8, 255);
 
-            // Calculate the screen coordinates of the wall slice
-            let x = (i as f32 * column_width) as i32;
-            let y = ((screen_height as f32 - wall_height) / 2.0) as i32;
+            // Calculate screen coordinates for the wall slice
+            let x = i as i32 * column_width;
+            let y = ((state.screen_height as f32 - wall_height) / 2.0) as i32;
             let height = wall_height as i32;
 
             // Draw the wall slice
-            d.draw_rectangle(x, y, column_width as i32, height, wall_color);
+            d.draw_rectangle(x, y, column_width, height, wall_color);
         }
     }
 
@@ -114,16 +101,20 @@ impl Player {
             if ffi::IsKeyDown(ffi::KeyboardKey::KEY_W as c_int) {
                 self.pos.x += self.direction.x * self.velocity;
                 self.pos.y += self.direction.y * self.velocity;
+                self.distances = my_ray::cast_fov(self.pos, self.angle, 60.0, NUM_RAYS, world).1;
             }
             if ffi::IsKeyDown(ffi::KeyboardKey::KEY_A as c_int) {
                 self.angle -= 10.0;
+                self.distances = my_ray::cast_fov(self.pos, self.angle, 60.0, NUM_RAYS, world).1;
             }
             if ffi::IsKeyDown(ffi::KeyboardKey::KEY_S as c_int) {
                 self.pos.x -= self.direction.x * self.velocity;
                 self.pos.y -= self.direction.y * self.velocity;
+                self.distances = my_ray::cast_fov(self.pos, self.angle, 60.0, NUM_RAYS, world).1;
             }
             if ffi::IsKeyDown(ffi::KeyboardKey::KEY_D as c_int) {
                 self.angle += 10.0;
+                self.distances = my_ray::cast_fov(self.pos, self.angle, 60.0, NUM_RAYS, world).1;
             }
             if self.angle >= 360.0 {
                 self.angle -= 360.0;
