@@ -1,6 +1,9 @@
 use raylib::prelude::*;
 use std::fs::File;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
+
+// TODO:
+// 1. Use sqlite for this somehow
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Blocks {
@@ -17,6 +20,9 @@ impl Blocks {
             2 => Some(Blocks::PLAYER),
             _ => None,
         }
+    }
+    fn to_u8(self) -> u8 {
+        self as u8
     }
 }
 
@@ -58,8 +64,8 @@ impl World {
                 let dest_rect = Rectangle {
                     x: tile_screen_pos.x,
                     y: tile_screen_pos.y,
-                    width: self.tile_size as f32 - 1.0 * camera.zoom,
-                    height: self.tile_size as f32 - 1.0 * camera.zoom,
+                    width: self.tile_size as f32 * camera.zoom,
+                    height: self.tile_size as f32 * camera.zoom,
                 };
 
                 let texture_section = match self.data[i][j] {
@@ -148,5 +154,29 @@ impl World {
             size,
             tile_size,
         })
+    }
+    pub fn data_to_file(&self, file_name: &str) -> io::Result<()> {
+        let mut file = File::create(file_name)?;
+
+        // Write the size of the world as a 4-byte integer
+        let size_bytes = (self.size as u32).to_le_bytes();
+        file.write_all(&size_bytes)?;
+
+        // Write the tile size as a 4-byte floating-point value
+        let tile_size_bytes = self.tile_size.to_le_bytes();
+        file.write_all(&tile_size_bytes)?;
+
+        // Write the world data
+        for row in &self.data {
+            for &block in row {
+                file.write_all(&[block.to_u8()])?;
+            }
+        }
+
+        println!(
+            "World data (size: {}, tile_size: {}) saved to {}",
+            self.size, self.tile_size, file_name
+        );
+        Ok(())
     }
 }

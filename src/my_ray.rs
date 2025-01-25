@@ -2,7 +2,36 @@ use crate::world::Blocks;
 use crate::world::World;
 use raylib::prelude::*;
 
-pub fn raycast_dda(start: Vector2, angle: f32, world: &World) -> Vector2 {
+// Casts a number of rays spread out from the player
+// Inputs: position, number of rays, angle to be cast (fov)
+// Outputs: Array of distances and hitpoints for each ray
+
+pub fn cast_fov(
+    pos: Vector2,
+    player_angle: f32,
+    fov: f32,
+    num_rays: i32,
+    world: &World,
+) -> (Vec<f32>, Vec<Vector2>) {
+    let mut distances = Vec::new();
+    let mut hit_positions = Vec::new();
+    let start_angle = player_angle - (fov / 2.0); // Center the FOV around the player's angle
+    let angle_step = fov / (num_rays - 1) as f32;
+
+    for i in 0..num_rays {
+        let angle = start_angle + i as f32 * angle_step;
+        let (distance, hit_pos) = raycast_dda(pos, angle, world);
+        distances.push(distance);
+        hit_positions.push(hit_pos);
+    }
+
+    (distances, hit_positions)
+}
+
+// Takes the starting point and angle, and casts a ray into the world
+// Inputs: Starting point, angle, world
+// Outputs: distance of the ray, hit position
+pub fn raycast_dda(start: Vector2, angle: f32, world: &World) -> (f32, Vector2) {
     let ray_angle = angle;
     let mut ray_pos = Vector2::new(0.0, 0.0);
 
@@ -16,7 +45,6 @@ pub fn raycast_dda(start: Vector2, angle: f32, world: &World) -> Vector2 {
     let mut hx = start.x;
     let mut hy = start.y;
 
-    // Check Horizontal Lines
     let mut atan = -1.0 / ray_angle.to_radians().tan();
 
     if ray_angle.to_radians().sin() < 0.0 {
@@ -99,31 +127,28 @@ pub fn raycast_dda(start: Vector2, angle: f32, world: &World) -> Vector2 {
         }
     }
 
-    // Compare distances and set the final ray position
+    let final_dist;
+
     if disv < dish {
         ray_pos.x = vx;
         ray_pos.y = vy;
+        final_dist = disv;
     } else {
         ray_pos.x = hx;
         ray_pos.y = hy;
+        final_dist = dish;
     }
 
-    return ray_pos;
+    return (final_dist, ray_pos);
 }
 
 pub fn dist(ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
     ((bx - ax).powi(2) + (by - ay).powi(2)).sqrt()
 }
 
-/*
-pub fn ray_cast_brute_force(
-    &self,
-    d: &mut RaylibDrawHandle,
-    world: &mut World,
-    camera: &Camera2D,
-) -> Vector2 {
+pub fn ray_cast_brute_force(start: Vector2, angle: f32, world: &mut World) -> Vector2 {
     // Start the ray in world space at the player's position
-    let mut ray_end = self.pos;
+    let mut ray_end = start;
     let step_size: f32 = 2.0;
 
     // World grid dimensions
@@ -139,18 +164,9 @@ pub fn ray_cast_brute_force(
             [(ray_end.y / world.tile_size as f32) as usize]
             != Blocks::STONE
     {
-        ray_end.x += self.direction.x * step_size;
-        ray_end.y += self.direction.y * step_size;
+        ray_end.x += angle.to_radians().cos() * step_size;
+        ray_end.y += angle.to_radians().sin() * step_size;
     }
-
-    // Convert the world space positions to screen space for drawing
-    let ray_start_screen = Self::entity_to_screen(self.pos, camera);
-    let ray_end_screen = Self::entity_to_screen(ray_end, camera);
-
-    // Draw the ray
-    d.draw_line_ex(ray_start_screen, ray_end_screen, 5.0, Color::RED);
 
     return ray_end;
 }
-
-*/
