@@ -35,7 +35,7 @@ fn main() -> io::Result<()> {
         .load_texture(&thread, "./player_sheet.png")
         .expect("Failed to load texture");
 
-    let mut world = World::new(32);
+    let mut world = World::new(8);
     let mut player = Player::new(&mut world);
     let mut selector = Selector::new();
 

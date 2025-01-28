@@ -12,14 +12,14 @@ use std::os::raw::c_int;
 // 1. set discrete values for zoom
 // 2. Only draw rays when player moves to put less stress on the cpu
 
-const NUM_RAYS: i32 = 200;
+const NUM_RAYS: i32 = 60; // This is also the fov
 
 pub struct Player {
     pub pos: Vector2,
     velocity: f32,
     direction: Vector2, // cos and sin values
     angle: f32,
-    distances: Vec<Vector2>,
+    distances: (Vec<f32>, Vec<Vector2>),
 }
 
 impl Player {
@@ -31,13 +31,19 @@ impl Player {
             angle,
             velocity: 10.0,
             direction: Vector2::new(0.0, 0.0),
-            distances: my_ray::cast_fov(pos, angle, 60.0, NUM_RAYS, world).1,
+            distances: my_ray::cast_fov(pos, angle, NUM_RAYS, world),
         }
     }
 
-    pub fn render(&self, state: &State, d: &mut RaylibDrawHandle, camera: &Camera2D) {
+    pub fn render(
+        &self,
+        state: &State,
+        d: &mut RaylibDrawHandle,
+        camera: &Camera2D,
+        world: &World,
+    ) {
         if state.view == View::FPS {
-            Self::render_fps(self, state, d);
+            Self::render_fps(self, state, d, world);
         } else {
             Self::render_minimap(self, d, camera);
         }
@@ -54,8 +60,8 @@ impl Player {
             Color::RED,
         );
 
-        for i in 0..self.distances.len() {
-            let ray_pos = self.distances[i];
+        for i in 0..self.distances.1.len() {
+            let ray_pos = self.distances.1[i];
             // Convert the world space positions to screen space for drawing
             let ray_start_screen = render::entity_to_screen(self.pos, camera);
             let ray_end_screen = render::entity_to_screen(ray_pos, camera);
@@ -65,34 +71,20 @@ impl Player {
         }
     }
 
-    pub fn render_fps(&self, state: &State, d: &mut RaylibDrawHandle) {
-        let num_rays = self.distances.len();
+    pub fn render_fps(&self, state: &State, d: &mut RaylibDrawHandle, world: &World) {
+        let num_rays = self.distances.0.len();
         let column_width = (state.screen_width / num_rays as i32) as i32;
 
-        for (i, hit_point) in self.distances.iter().enumerate() {
-            // Calculate distance to the wall
-            let dx = hit_point.x - self.pos.x;
-            let dy = hit_point.y - self.pos.y;
-            let distance = (dx * dx + dy * dy).sqrt();
-
-            // Correct for fish-eye effect
-            let angle_offset = (i as f32 / num_rays as f32 - 0.5) * 60.0_f32.to_radians();
-            let corrected_distance = distance * angle_offset.cos();
-
-            // Calculate wall height
-            let wall_height = (state.screen_height as f32 * 50.0) / corrected_distance;
-
-            // Determine color intensity
-            let intensity = (1.0 - (corrected_distance / 500.0).min(1.0)) * 255.0;
-            let wall_color = Color::new(intensity as u8, intensity as u8, intensity as u8, 255);
-
-            // Calculate screen coordinates for the wall slice
+        for i in 0..num_rays {
+            let wall_height =
+                (state.screen_height as f32 * world.tile_size as f32) / self.distances.0[i];
             let x = i as i32 * column_width;
             let y = ((state.screen_height as f32 - wall_height) / 2.0) as i32;
             let height = wall_height as i32;
 
-            // Draw the wall slice
-            d.draw_rectangle(x, y, column_width, height, wall_color);
+            if self.distances.0[i] < 1000.0 {
+                d.draw_rectangle(x, y, column_width, height, Color::BLUE);
+            }
         }
     }
 
@@ -101,20 +93,20 @@ impl Player {
             if ffi::IsKeyDown(ffi::KeyboardKey::KEY_W as c_int) {
                 self.pos.x += self.direction.x * self.velocity;
                 self.pos.y += self.direction.y * self.velocity;
-                self.distances = my_ray::cast_fov(self.pos, self.angle, 60.0, NUM_RAYS, world).1;
+                self.distances = my_ray::cast_fov(self.pos, self.angle, NUM_RAYS, world);
             }
             if ffi::IsKeyDown(ffi::KeyboardKey::KEY_A as c_int) {
                 self.angle -= 10.0;
-                self.distances = my_ray::cast_fov(self.pos, self.angle, 60.0, NUM_RAYS, world).1;
+                self.distances = my_ray::cast_fov(self.pos, self.angle, NUM_RAYS, world);
             }
             if ffi::IsKeyDown(ffi::KeyboardKey::KEY_S as c_int) {
                 self.pos.x -= self.direction.x * self.velocity;
                 self.pos.y -= self.direction.y * self.velocity;
-                self.distances = my_ray::cast_fov(self.pos, self.angle, 60.0, NUM_RAYS, world).1;
+                self.distances = my_ray::cast_fov(self.pos, self.angle, NUM_RAYS, world);
             }
             if ffi::IsKeyDown(ffi::KeyboardKey::KEY_D as c_int) {
                 self.angle += 10.0;
-                self.distances = my_ray::cast_fov(self.pos, self.angle, 60.0, NUM_RAYS, world).1;
+                self.distances = my_ray::cast_fov(self.pos, self.angle, NUM_RAYS, world);
             }
             if self.angle >= 360.0 {
                 self.angle -= 360.0;

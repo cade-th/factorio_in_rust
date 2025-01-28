@@ -9,18 +9,20 @@ use raylib::prelude::*;
 pub fn cast_fov(
     pos: Vector2,
     player_angle: f32,
-    fov: f32,
     num_rays: i32,
     world: &World,
 ) -> (Vec<f32>, Vec<Vector2>) {
     let mut distances = Vec::new();
     let mut hit_positions = Vec::new();
-    let start_angle = player_angle - (fov / 2.0); // Center the FOV around the player's angle
-    let angle_step = fov / (num_rays - 1) as f32;
+    let start_angle = player_angle - (num_rays / 2) as f32;
 
     for i in 0..num_rays {
-        let angle = start_angle + i as f32 * angle_step;
-        let (distance, hit_pos) = raycast_dda(pos, angle, world);
+        let angle = start_angle + i as f32;
+        let (mut distance, hit_pos) = raycast_dda(pos, angle, world);
+        // fix the fish eye effect
+        let ca = player_angle - angle;
+        distance *= ca.to_radians().cos();
+
         distances.push(distance);
         hit_positions.push(hit_pos);
     }
